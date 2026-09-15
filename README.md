@@ -165,6 +165,35 @@ npm run build && npm start
 
 Acesso: admin `anderson@artrip.com.br` / `mude-esta-senha`. Webhook de pagamento sem secret → 201.
 
+## Subir no ar (docker compose — mesmo padrão do TINTA.AI)
+
+```bash
+cd <raiz-do-projeto>
+cp .env.docker.example .env      # gere POSTGRES_SENHA e JWT_SECRET
+docker compose up -d --build
+```
+
+- `db` → PostgreSQL (rede interna, sem porta pública)
+- `backend` → NestJS em `:3333`: aplica migrations, roda o seed demo e sobe
+- `frontend` → Next.js em `:3000` (build com `NEXT_PUBLIC_API_URL=/api`)
+- `web` → nginx na porta **`8093`** fazendo proxy único: `/api` e `/uploads` pro backend,
+  todo o resto pro site. Assim o navegador enxerga tudo numa origem só (sem CORS).
+
+Logs: `docker compose logs -f web`.
+
+### Gerar o link público (cloudflared quick tunnel)
+
+```bash
+# uma URL https://*.trycloudflare.com que redireciona pra porta do nginx
+/tmp/cloudflared tunnel --url http://localhost:8093
+# ou, mantendo em background:
+nohup /tmp/cloudflared tunnel --url http://localhost:8093 > /tmp/cloudflared-artrip.log 2>&1 &
+# pegue a URL: grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cloudflared-artrip.log | head -1
+```
+
+É esse link que dá pro Anderson abrir a demo no celular/site.
+Cada vez que o comando roda ele gera uma URL nova (vale a mesma sessão).
+
 ## Passo a passo pra criar cada chave (dever de casa do Anderson)
 
 | Pra quê | Chave | Como criar |
