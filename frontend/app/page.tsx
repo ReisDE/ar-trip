@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 type Pacote = {
   id: string;
@@ -60,7 +61,16 @@ export default async function Home() {
               Ver pacotes disponíveis
             </Link>
           </div>
-          <div className="hidden md:block aspect-[4/5] bg-estrada/20 border border-poeira/30" />
+          <div className="hidden md:block aspect-[4/5] border border-poeira/30 overflow-hidden">
+              <Image
+                src="/hero.jpg"
+                alt="Destino de viagem de ônibus"
+                width={800}
+                height={1000}
+                className="w-full h-full object-cover"
+                priority
+              />
+            </div>
         </div>
       </section>
 
