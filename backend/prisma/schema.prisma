@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TipoUsuario {
+  admin
+  motorista
+  guia
+  atendente
+  cliente
+}
+
+enum StatusViagem {
+  agendada
+  em_andamento
+  concluida
+  cancelada
+}
+
+enum StatusReserva {
+  pendente
+  confirmada
+  cancelada
+  lista_espera
+}
+
+enum MetodoPagamento {
+  pix
+  cartao
+  boleto
+}
+
+enum StatusPagamento {
+  pendente
+  aprovado
+  recusado
+  estornado
+}
+
+enum TipoConteudo {
+  foto
+  video
+}
+
+enum StatusConteudo {
+  pendente_aprovacao
+  aprovado
+  publicado
+  rejeitado
+}
+
+model Usuario {
+  id         String      @id @default(uuid())
+  nome       String
+  email      String      @unique
+  senhaHash  String      @map("senha_hash")
+  telefone   String
+  tipo       TipoUsuario
+  ativo      Boolean     @default(true)
+  criadoEm   DateTime    @default(now()) @map("criado_em")
+
+  cliente          Cliente?
+  viagensMotorista Viagem[] @relation("motorista")
+  viagensGuia      Viagem[] @relation("guia")
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id               String   @id @default(uuid())
+  usuarioId        String?  @unique @map("usuario_id")
+  usuario          Usuario? @relation(fields: [usuarioId], references: [id])
+  nome             String
+  cpf              String?
+  telefone         String
+  email            String?
+  pontosFidelidade Int      @default(0) @map("pontos_fidelidade")
+  codigoIndicacao  String   @unique @map("codigo_indicacao")
+  indicadoPorId    String?  @map("indicado_por")
+  indicadoPor      Cliente? @relation("indicacoes", fields: [indicadoPorId], references: [id])
+  indicados        Cliente[] @relation("indicacoes")
+  criadoEm         DateTime @default(now()) @map("criado_em")
+
+  reservas   Reserva[]
+  avaliacoes Avaliacao[]
+  gruposMembro GrupoMembro[]
+  mensagens  MensagemChat[]
+
+  @@map("clientes")
+}
+
+model Pacote {
+  id           String   @id @default(uuid())
+  nome         String
+  destino      String
+  descricao    String?
+  precoBase    Decimal  @map("preco_base")
+  duracaoDias  Int      @map("duracao_dias")
+  inclui       String?
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+
+  viagens   Viagem[]
+  conteudos Conteudo[]
+
+  @@map("pacotes")
+}
+
+model Onibus {
+  id             String   @id @default(uuid())
+  placa          String   @unique
+  modelo         String?
+  capacidade     Int
+  layoutPoltronas Json?   @map("layout_poltronas")
+  ativo          Boolean  @default(true)
+
+  viagens   Viagem[]
+  poltronas Poltrona[]
+
+  @@map("onibus")
+}
+
+model Poltrona {
+  id       String  @id @default(uuid())
+  onibusId String  @map("onibus_id")
+  onibus   Onibus  @relation(fields: [onibusId], references: [id])
+  numero   String
+  tipo     String?
+
+  reservas Reserva[]
+
+  @@map("poltronas")
+}
+
+model Viagem {
+  id             String       @id @default(uuid())
+  pacoteId       String       @map("pacote_id")
+  pacote         Pacote       @relation(fields: [pacoteId], references: [id])
+  dataSaida      DateTime     @map("data_saida")
+  dataRetorno    DateTime     @map("data_retorno")
+  onibusId       String?      @map("onibus_id")
+  onibus         Onibus?      @relation(fields: [onibusId], references: [id])
+  motoristaId    String?      @map("motorista_id")
+  motorista      Usuario?     @relation("motorista", fields: [motoristaId], references: [id])
+  guiaId         String?      @map("guia_id")
+  guia           Usuario?     @relation("guia", fields: [guiaId], references: [id])
+  status         StatusViagem @default(agendada)
+  localEmbarque  String       @map("local_embarque")
+  latEmbarque    Decimal?     @map("lat_embarque")
+  lngEmbarque    Decimal?     @map("lng_embarque")
+  vagasTotais    Int          @map("vagas_totais")
+  vagasOcupadas  Int          @default(0) @map("vagas_ocupadas")
+  criadoEm       DateTime     @default(now()) @map("criado_em")
+
+  reservas     Reserva[]
+  localizacoes Localizacao[]
+  conteudos    Conteudo[]
+  avaliacoes   Avaliacao[]
+  grupos       Grupo[]
+  checklist    ChecklistViagem?
+  documentos   DocumentoViagem[]
+  mensagens    MensagemChat[]
+
+  @@map("viagens")
+}
+
+model Reserva {
+  id          String        @id @default(uuid())
+  viagemId    String        @map("viagem_id")
+  viagem      Viagem        @relation(fields: [viagemId], references: [id])
+  clienteId   String        @map("cliente_id")
+  cliente     Cliente       @relation(fields: [clienteId], references: [id])
+  poltronaId  String?       @map("poltrona_id")
+  poltrona    Poltrona?     @relation(fields: [poltronaId], references: [id])
+  status      StatusReserva @default(pendente)
+  valorTotal  Decimal       @map("valor_total")
+  criadoEm    DateTime      @default(now()) @map("criado_em")
+
+  pagamento Pagamento?
+
+  @@map("reservas")
+}
+
+model Pagamento {
+  id         String          @id @default(uuid())
+  reservaId  String          @unique @map("reserva_id")
+  reserva    Reserva         @relation(fields: [reservaId], references: [id])
+  metodo     MetodoPagamento
+  parcelas   Int             @default(1)
+  valor      Decimal
+  status     StatusPagamento @default(pendente)
+  gatewayId  String?         @map("gateway_id")
+  pagoEm     DateTime?       @map("pago_em")
+
+  @@map("pagamentos")
+}
+
+model Localizacao {
+  id           String   @id @default(uuid())
+  viagemId     String   @map("viagem_id")
+  viagem       Viagem   @relation(fields: [viagemId], references: [id])
+  lat          Decimal
+  lng          Decimal
+  registradoEm DateTime @default(now()) @map("registrado_em")
+  linkPublico  String   @unique @map("link_publico")
+  expirado     Boolean  @default(false)
+
+  @@map("localizacoes")
+}
+
+model Conteudo {
+  id            String         @id @default(uuid())
+  viagemId      String?        @map("viagem_id")
+  viagem        Viagem?        @relation(fields: [viagemId], references: [id])
+  pacoteId      String?        @map("pacote_id")
+  pacote        Pacote?        @relation(fields: [pacoteId], references: [id])
+  tipo          TipoConteudo
+  urlArquivo    String         @map("url_arquivo")
+  legendaGerada String?        @map("legenda_gerada")
+  legendaFinal  String?        @map("legenda_final")
+  status        StatusConteudo @default(pendente_aprovacao)
+  publicadoEm   Json?          @map("publicado_em")
+  criadoEm      DateTime       @default(now()) @map("criado_em")
+
+  @@map("conteudos")
+}
+
+model Avaliacao {
+  id         String   @id @default(uuid())
+  viagemId   String   @map("viagem_id")
+  viagem     Viagem   @relation(fields: [viagemId], references: [id])
+  clienteId  String   @map("cliente_id")
+  cliente    Cliente  @relation(fields: [clienteId], references: [id])
+  nota       Int
+  comentario String?
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  @@map("avaliacoes")
+}
+
+model Grupo {
+  id        String   @id @default(uuid())
+  viagemId  String   @map("viagem_id")
+  viagem    Viagem   @relation(fields: [viagemId], references: [id])
+  nome      String
+  linkToken String   @unique @map("link_token")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  membros GrupoMembro[]
+
+  @@map("grupos")
+}
+
+model GrupoMembro {
+  id        String   @id @default(uuid())
+  grupoId   String   @map("grupo_id")
+  grupo     Grupo    @relation(fields: [grupoId], references: [id])
+  clienteId String   @map("cliente_id")
+  cliente   Cliente  @relation(fields: [clienteId], references: [id])
+  entrouEm  DateTime @default(now()) @map("entrou_em")
+
+  @@unique([grupoId, clienteId])
+  @@map("grupo_membros")
+}
+
+model ChecklistViagem {
+  id           String    @id @default(uuid())
+  viagemId     String    @unique @map("viagem_id")
+  viagem       Viagem    @relation(fields: [viagemId], references: [id])
+  itens        Json
+  completo     Boolean   @default(false)
+  completadoEm DateTime? @map("completado_em")
+
+  @@map("checklists_viagem")
+}
+
+model DocumentoViagem {
+  id        String   @id @default(uuid())
+  viagemId  String   @map("viagem_id")
+  viagem    Viagem   @relation(fields: [viagemId], references: [id])
+  nome      String
+  urlArquivo String  @map("url_arquivo")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  @@map("documentos_viagem")
+}
+
+enum RemetenteChat {
+  cliente
+  agencia
+}
+
+model MensagemChat {
+  id        String        @id @default(uuid())
+  viagemId  String        @map("viagem_id")
+  viagem    Viagem        @relation(fields: [viagemId], references: [id])
+  clienteId String        @map("cliente_id")
+  cliente   Cliente       @relation(fields: [clienteId], references: [id])
+  remetente RemetenteChat
+  texto     String
+  criadoEm  DateTime      @default(now()) @map("criado_em")
+
+  @@map("mensagens_chat")
+}
+

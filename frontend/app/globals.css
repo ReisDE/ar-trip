@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.rota-pontilhada {
+  background-image: radial-gradient(circle, #16232B 1.5px, transparent 1.5px);
+  background-size: 10px 2px;
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 2px;
+}
